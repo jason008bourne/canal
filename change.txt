@@ -1,0 +1,5 @@
+修改点：
+1.canal.client-1.1.3.jar
+2.client-adapter.launcher-1.1.3.jar
+3.client-adapter.common-1.1.3
+4.client-adapter.elasticsearch-1.1.3

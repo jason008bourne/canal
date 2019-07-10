@@ -3,6 +3,7 @@ package com.alibaba.otter.canal.client.adapter.support;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 /**
  * 配置信息类
@@ -33,9 +34,19 @@ public class CanalClientConfig {
     // aliyun ak/sk
     private String             accessKey;
     private String             secretKey;
-
     // canal adapters 配置
     private List<CanalAdapter> canalAdapters;
+
+    //mq 额外配置 TODO add jason
+    private Properties         kafka;
+
+    public Properties getKafka() {
+        return kafka;
+    }
+
+    public void setKafka(Properties kafka) {
+        this.kafka = kafka;
+    }
 
     public String getCanalServerHost() {
         return canalServerHost;

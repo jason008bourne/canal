@@ -69,6 +69,7 @@ public class KafkaCanalConnector implements CanalMQConnector {
         }
     }
 
+    //TODO add jason
     public KafkaCanalConnector(String topic,Integer partition,boolean flatMessage,Properties p){
         this.topic = topic;
         this.partition = partition;

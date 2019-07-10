@@ -34,6 +34,7 @@ public class CanalAdapterKafkaWorker extends AbstractCanalAdapterWorker {
         super.canalDestination = topic;
         super.groupId = groupId;
         this.flatMessage = flatMessage;
+        //TODO backup jason
 //        this.connector = new KafkaCanalConnector(bootstrapServers,
 //                topic,
 //                null,
@@ -59,6 +60,10 @@ public class CanalAdapterKafkaWorker extends AbstractCanalAdapterWorker {
             properties.put("value.deserializer", MessageDeserializer.class.getName());
         } else {
             properties.put("value.deserializer", StringDeserializer.class.getName());
+        }
+        Properties kafkaProp = canalClientConfig.getKafka();
+        if(kafkaProp != null && !kafkaProp.isEmpty()){
+            properties.putAll(kafkaProp);
         }
         this.connector = new KafkaCanalConnector(topic,null,flatMessage,properties);
         connector.setSessionTimeout(30L, TimeUnit.SECONDS);
