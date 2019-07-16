@@ -235,6 +235,7 @@ public class ESTemplate {
             }catch (IOException e){
                 logger.error("insert error",e);
             }
+            this.bulkRequest = new BulkRequest();
         }
     }
 

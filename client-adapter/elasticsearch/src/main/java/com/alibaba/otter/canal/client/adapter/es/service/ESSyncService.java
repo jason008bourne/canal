@@ -438,19 +438,16 @@ public class ESSyncService {
         ESMapping mapping = config.getEsMapping();
         Map<String, Object> esFieldData = new LinkedHashMap<>();
         Object idVal = esTemplate.getESDataFromDmlData(mapping, data, esFieldData);
-
         if (logger.isDebugEnabled()) {
-            logger.debug("singleTableSimpleFiledInsert mysql data: {} \nes data: {}",
-                    JSON.toJSONString(data),
-                    JSON.toJSONString(esFieldData));
+            logger.debug("----insert----old: {}\ndml: {}", JSON.toJSONString(dml.getOld()), dml);
         }
         //做兼容处理
         if(idVal == null){
-            recordInsertDataNoPk(dml,data,esFieldData);
+            recordInsertDataNoPk(mapping,dml,data,esFieldData);
             return;
         }
         if(idVal instanceof String && StringUtils.isBlank((String)idVal)){
-            recordInsertDataNoPk(dml,data,esFieldData);
+            recordInsertDataNoPk(mapping,dml,data,esFieldData);
             return;
         }
         if (logger.isTraceEnabled()) {
@@ -463,27 +460,38 @@ public class ESSyncService {
         esTemplate.insert(mapping, idVal, esFieldData);
     }
 
-    private void recordInsertDataNoPk(Dml dml,Map<String, Object> data,Map<String, Object> esFieldData){
-        logger.warn("-------------------------id null or empty--"+ dml.getTable() + "-------------------" + data);
-        if(insertFieldTable.contains(dml.getTable())){
-            if(dml.getPkNames() == null || dml.getPkNames().isEmpty()){
-                return;
-            }
+    private Object getMysqlPkIdValue(ESMapping mapping,Dml dml,Map<String, Object> data){
+        String mysqlPkFiled = null;
+        if(dml.getPkNames() == null || dml.getPkNames().isEmpty()){
+            mysqlPkFiled = mapping.getPk();
+        }else{
             //取第一个
-            Object pkValue = data.get(dml.getPkNames().get(0));
-            if(pkValue == null){
-                logger.warn("------------------------recordInsertDataNoPk-mysql id null-------------------" + data);
-                return;
-            }
-            if(pkValue instanceof String && StringUtils.isBlank((String)pkValue)){
-                logger.warn("-------------------------recordInsertDataNoPk-mysql id empty-------------------" + data);
-                return;
-            }
-            if(esFieldData == null || esFieldData.isEmpty()){
-                logger.warn("--------------------------esFieldData empty-------------------" + data);
-                return;
-            }
-            Map<String,Object> insertData = (Map<String,Object>)insertFieldMap.get(String.valueOf(pkValue));
+            mysqlPkFiled = dml.getPkNames().get(0);
+        }
+        if( mysqlPkFiled == null ){
+            logger.warn("-----------mysql pkField null-----------"+ dml.getTable() + "--------" + dml.getOld());
+            return null;
+        }
+        return data.get(mysqlPkFiled);
+
+    }
+    private void recordInsertDataNoPk(ESMapping mapping,Dml dml,Map<String, Object> data,Map<String, Object> esFieldData){
+        logger.warn("----------es id null or empty--"+ dml.getTable() + "--------" + dml.getOld());
+        Object mysqlPkIdValue = getMysqlPkIdValue(mapping,dml,data);
+        if(mysqlPkIdValue == null){
+            logger.warn("----------recordInsertDataNoPk-mysql id null-----------"+ dml.getTable() + "--------" + dml.getOld());
+            return;
+        }
+        if(mysqlPkIdValue instanceof String && StringUtils.isBlank((String)mysqlPkIdValue)){
+            logger.warn("----------recordInsertDataNoPk-mysql id empty-------"+ dml.getTable() + "--------" + dml.getOld());
+            return;
+        }
+        if(esFieldData == null || esFieldData.isEmpty()){
+            logger.warn("----------esFieldData empty---------"+ dml.getTable() + "--------" + dml.getOld());
+            return;
+        }
+        if(insertFieldTable.contains(dml.getTable())){
+            Map<String,Object> insertData = (Map<String,Object>)insertFieldMap.get(String.valueOf(mysqlPkIdValue));
             if(null != insertData){
                 insertData.entrySet().stream().forEach(stringObjectEntry -> {
                     if(!esFieldData.containsKey(stringObjectEntry.getKey())){
@@ -491,36 +499,37 @@ public class ESSyncService {
                     }
                 });
             }
-            esFieldData.put(PID_FIELD,pkValue);
-            insertFieldMap.put(String.valueOf(pkValue),esFieldData);
+            insertFieldMap.put(String.valueOf(mysqlPkIdValue),esFieldData);
         }
     }
-    private void mergeInsertDataNoPk(Dml dml,Map<String, Object> data,Map<String, Object> esFieldData){
+    private boolean mergeInsertDataNoPk(ESMapping mapping,Dml dml,Map<String, Object> data,Map<String, Object> esFieldData){
+        Object mysqlPkIdValue = getMysqlPkIdValue(mapping,dml,data);
+        if(mysqlPkIdValue == null){
+            logger.warn("----------recordInsertDataNoPk-mysql id null-----------"+ dml.getTable() + "--------" + dml.getOld());
+            return false;
+        }
+        if(mysqlPkIdValue == null){
+            logger.warn("--------mergeInsertDataNoPk mysql id null--------"+ dml.getTable() + "--------" + dml.getOld());
+            return false;
+        }
+        if(mysqlPkIdValue instanceof String && StringUtils.isBlank((String)mysqlPkIdValue)){
+            logger.warn("--------mergeInsertDataNoPk mysql id empty-------"+ dml.getTable() + "--------" + dml.getOld());
+            return false;
+        }
         if(insertFieldTable.contains(dml.getTable())){
-            if(dml.getPkNames() == null || dml.getPkNames().isEmpty()){
-                return;
-            }
-            //取第一个
-            Object pkValue = data.get(dml.getPkNames().get(0));
-            if(pkValue == null){
-                logger.warn("-------------------------mergeInsertDataNoPk mysql id null-------------------" + data);
-                return;
-            }
-            if(pkValue instanceof String && StringUtils.isBlank((String)pkValue)){
-                logger.warn("-------------------------mergeInsertDataNoPk mysql id empty-------------------" + data);
-                return;
-            }
-            Map<String,Object> insertData = (Map<String,Object>)insertFieldMap.get(String.valueOf(pkValue));
+            esFieldData.put(PID_FIELD,mysqlPkIdValue);
+            Map<String,Object> insertData = (Map<String,Object>)insertFieldMap.get(String.valueOf(mysqlPkIdValue));
             if(null != insertData){
-                insertFieldMap.remove(String.valueOf(pkValue));
+                insertFieldMap.remove(String.valueOf(mysqlPkIdValue));
                 insertData.entrySet().stream().forEach(stringObjectEntry -> {
                     if(!esFieldData.containsKey(stringObjectEntry.getKey())){
                         esFieldData.put(stringObjectEntry.getKey(),stringObjectEntry.getValue());
                     }
                 });
             }
-            esFieldData.put(PID_FIELD,pkValue);
+            return true;
         }
+        return false;
     }
     /**
      * 主表(单表)复杂字段insert
@@ -857,14 +866,19 @@ public class ESSyncService {
                                               Map<String, Object> old) {
         ESMapping mapping = config.getEsMapping();
         Map<String, Object> esFieldData = new LinkedHashMap<>();
-
         Object idVal = esTemplate.getESDataFromDmlData(mapping, data, old, esFieldData);
+        //update 数据太多，入口不打日志
+//        if (logger.isDebugEnabled()) {
+//            logger.debug("-----------update---------- old: {} \nes data: {}",
+//                    JSON.toJSONString(old),
+//                    JSON.toJSONString(esFieldData));
+//        }
         if(idVal == null){
-            recordInsertDataNoPk(dml,data,esFieldData);
+            recordInsertDataNoPk(mapping,dml,data,esFieldData);
             return;
         }
         if(idVal instanceof String && StringUtils.isBlank((String)idVal)){
-            recordInsertDataNoPk(dml,data,esFieldData);
+            recordInsertDataNoPk(mapping,dml,data,esFieldData);
             return;
         }
         if (logger.isTraceEnabled()) {
@@ -874,16 +888,28 @@ public class ESSyncService {
                 mapping.get_index(),
                 idVal);
         }
-        mergeInsertDataNoPk(dml,data,esFieldData);
-        if(esFieldData ==null || esFieldData.isEmpty()){
-            logger.warn("--------------------------singleTableSimpleFiledUpdate esFieldData empty-------------------");
+        boolean merged = mergeInsertDataNoPk(mapping,dml,data,esFieldData);
+        if(esFieldData == null || esFieldData.isEmpty()){
+            logger.warn("---------singleTableSimpleFiledUpdate esFieldData empty-----------" + "tableName:" + dml.getTable() + "--" + JSON.toJSONString(old));
         }else{
-            if(esFieldData.size() > 1 && logger.isDebugEnabled()){
-                logger.debug("singleTableSimpleFiledUpdate mysql old data: {}\nmysql new data:{}\nes data: {}",
-                        JSON.toJSONString(old),JSON.toJSONString(data),
-                        JSON.toJSONString(esFieldData));
+            //合并过，且size为1，那只有pid，忽略
+            if(merged){
+                if(esFieldData.size() > 1){
+                    esTemplate.update(mapping, idVal, esFieldData);
+                    if(logger.isDebugEnabled()){
+                        logger.debug("merge result mysql old data: {}\nes data: {}",
+                                JSON.toJSONString(old),JSON.toJSONString(esFieldData));
+                    }
+                }else{
+//                    if(logger.isDebugEnabled()){
+//                        logger.debug("-------------merge result only pid------------");
+//                    }
+                }
+            }else{
+                esTemplate.update(mapping, idVal, esFieldData);
+                logger.warn("normal result mysql old data: {}\nes data: {}",
+                        JSON.toJSONString(old),JSON.toJSONString(esFieldData));
             }
-            esTemplate.update(mapping, idVal, esFieldData);
         }
     }
 

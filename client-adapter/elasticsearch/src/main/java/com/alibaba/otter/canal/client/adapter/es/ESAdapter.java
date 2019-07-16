@@ -19,6 +19,7 @@ import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
@@ -145,6 +146,15 @@ public class ESAdapter implements OuterAdapter {
                                     .setSocketTimeout(10000)
 
                     );
+            int threadNum = 20;
+            if(threadNum > 0){
+                builder.setHttpClientConfigCallback(httpClientBuilder ->
+                        httpClientBuilder.setDefaultIOReactorConfig(
+                                IOReactorConfig.custom()
+                                        .setIoThreadCount(threadNum)
+                                        .build())
+                );
+            }
             String accessId = configuration.getProperties().get("accessId");
             String accessKey = configuration.getProperties().get("accessKey");
             if(StringUtils.isNotBlank(accessId) && StringUtils.isNotBlank(accessKey)){
