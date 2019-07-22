@@ -468,7 +468,7 @@ public class ESSyncService {
             //取第一个
             mysqlPkFiled = dml.getPkNames().get(0);
         }
-        if( mysqlPkFiled == null ){
+        if(StringUtils.isBlank(mysqlPkFiled)){
             logger.warn("-----------mysql pkField null-----------"+ dml.getTable() + "--------" + dml.getOld());
             return null;
         }
@@ -492,10 +492,12 @@ public class ESSyncService {
         }
         if(insertFieldTable.contains(dml.getTable())){
             Map<String,Object> insertData = (Map<String,Object>)insertFieldMap.get(String.valueOf(mysqlPkIdValue));
-            if(null != insertData){
+            if(null != insertData && !insertData.isEmpty()){
                 insertData.entrySet().stream().forEach(stringObjectEntry -> {
-                    if(!esFieldData.containsKey(stringObjectEntry.getKey())){
-                        esFieldData.put(stringObjectEntry.getKey(),stringObjectEntry.getValue());
+                    String key = stringObjectEntry.getKey();
+                    Object value = stringObjectEntry.getValue();
+                    if(StringUtils.isNotBlank(key) && value!=null && !esFieldData.containsKey(key)){
+                        esFieldData.put(key,value);
                     }
                 });
             }
@@ -519,11 +521,13 @@ public class ESSyncService {
         if(insertFieldTable.contains(dml.getTable())){
             esFieldData.put(PID_FIELD,mysqlPkIdValue);
             Map<String,Object> insertData = (Map<String,Object>)insertFieldMap.get(String.valueOf(mysqlPkIdValue));
-            if(null != insertData){
+            if(null != insertData && !insertData.isEmpty()){
                 insertFieldMap.remove(String.valueOf(mysqlPkIdValue));
                 insertData.entrySet().stream().forEach(stringObjectEntry -> {
-                    if(!esFieldData.containsKey(stringObjectEntry.getKey())){
-                        esFieldData.put(stringObjectEntry.getKey(),stringObjectEntry.getValue());
+                    String key = stringObjectEntry.getKey();
+                    Object value = stringObjectEntry.getValue();
+                    if(StringUtils.isNotBlank(key) && value!=null && !esFieldData.containsKey(key)){
+                        esFieldData.put(key,value);
                     }
                 });
             }
